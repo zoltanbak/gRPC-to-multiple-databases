@@ -1,0 +1,66 @@
+version: '3'
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres
+    container_name: postgres
+    environment:
+      POSTGRES_USER: zbuser
+      POSTGRES_PASSWORD: password
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+#      - ./src/main/resources/db.postgres/init.sql:/docker-entrypoint-initdb.d/10_init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - postgres
+    restart: unless-stopped
+
+  # Postgres Admin
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_container
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - postgres
+    restart: unless-stopped
+
+  # InfluxDB
+  influxdb:
+    image: influxdb:latest
+    container_name: influxdb_1
+    ports:
+      - "8086:8086"
+    volumes:
+      #- ./influxdb/scripts:/docker-entrypoint-initdb.d # setup.sh, see my previous post
+      - influxdb-storage:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2  # Stores credentials, so docker exec does not need them
+    environment:
+      - INFLUXD_REPORTING_DISABLED=true
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=zbuser
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password  # ${INFLUXDB_ADMIN_PASSWORD} # set in .env
+      - DOCKER_INFLUXDB_INIT_ORG=myorg
+      - DOCKER_INFLUXDB_INIT_BUCKET=mybucket
+
+    restart: on-failure:20
+
+networks:
+  postgres:
+    driver: bridge
+
+volumes:
+  influxdb-config:
+  influxdb-storage:
+  postgres:
+  pgadmin:
